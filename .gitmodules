@@ -1,0 +1,3 @@
+[submodule "namelesslibc"]
+	path = namelesslibc
+	url = https://github.com/MatthewZelriche/namelesslibc

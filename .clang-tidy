@@ -1,0 +1,2 @@
+---
+Checks:          '*,-abseil-*,-altera-*,-android-*,-darwin-*,-fuchsia-*,-google-*,-modernize-use-trailing-return-type,-llvm*,-objc-*,-zircon-*,'
