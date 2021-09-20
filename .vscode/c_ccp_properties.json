@@ -1,0 +1,16 @@
+{
+   "configurations": [
+      {
+         "name": "Linux",
+         "includePath": [
+            "${workspaceFolder}/Vendor/gnu-efi/inc/",
+            "${workspaceFolder}/Vendor/gnu-efi/inc/x86_64",
+            "${workspaceFolder}/Vendor/gnu-efi/inc/protocol"
+         ],
+         "defines": [],
+         "cppStandard": "c++17",
+         "cStandard": "c11"
+      }
+   ],
+   "version": 4
+}
