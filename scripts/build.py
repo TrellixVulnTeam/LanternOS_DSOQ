@@ -2,6 +2,7 @@
 import argparse
 import subprocess
 import os
+import glob
 
 
 def main():
@@ -31,16 +32,20 @@ def main():
     uefi_compiler_name = os.path.expandvars(uefi_compiler_name)
     kernel_compiler_name = os.path.expandvars(kernel_compiler_name)
 
-    subprocess.run(["cmake", "-S../bhavaloader/",
-                    "-B../build/{}/bhavaloader".format(build_type),
-                    "-DCMAKE_BUILD_TYPE={}".format(build_type), "-DCMAKE_C_COMPILER={}".format(uefi_compiler_name)])
-    subprocess.run(["make", "-C../build/{}/bhavaloader".format(build_type)])
+    subprocess.run(["make", "-C../bhavaloader"])
 
     # TODO: Build kernel
 
     os.makedirs("../VMTestBed/Boot/EFI/Boot/", exist_ok=True)
-    os.replace("../build/{}/bhavaloader/BhavaLoader.exe".format(build_type),
+    os.replace("../bhavaloader/Bootx64.efi".format(build_type),
                "../VMTestBed/Boot/EFI/Boot/Bootx64.efi")
+    removeBuildFiles = glob.glob("../bhavaloader/*.o") + \
+        glob.glob("../bhavaloader/*.a") + \
+        glob.glob("../bhavaloader/uefi/*.o") + \
+        glob.glob("../bhavaloader/uefi/*.a")
+
+    for file in removeBuildFiles:
+        os.remove(file)
 
 
 if __name__ == "__main__":

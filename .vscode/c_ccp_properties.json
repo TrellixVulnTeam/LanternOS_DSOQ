@@ -5,7 +5,8 @@
          "includePath": [
             "${workspaceFolder}/Vendor/gnu-efi/inc/",
             "${workspaceFolder}/Vendor/gnu-efi/inc/x86_64",
-            "${workspaceFolder}/Vendor/gnu-efi/inc/protocol"
+            "${workspaceFolder}/Vendor/gnu-efi/inc/protocol",
+            "${workspaceFolder}/Vendor/EmbeddedPrintf"
          ],
          "defines": [],
          "cppStandard": "c++17",
