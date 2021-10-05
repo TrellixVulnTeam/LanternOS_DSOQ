@@ -2,6 +2,17 @@
    "files.associations": {
       "atomic": "cpp",
       "cstdint": "cpp",
-      "uefi.h": "c"
+      "uefi.h": "c",
+      "*.tcc": "cpp",
+      "compare": "cpp",
+      "concepts": "cpp",
+      "cwchar": "cpp",
+      "istream": "cpp",
+      "new": "cpp",
+      "ostream": "cpp",
+      "stdexcept": "cpp",
+      "string": "cpp",
+      "system_error": "cpp",
+      "type_traits": "cpp"
    }
 }

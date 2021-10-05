@@ -2,13 +2,9 @@
 import argparse
 import subprocess
 import os
-import glob
 
 
 def main():
-    #script_path = os.path.split(os.path.realpath(__file__))
-    # os.chdir(script_path[0])
-
     uefi_compiler_name = "$HOME/opt/LanternOS-toolchain/bin/x86_64-w64-mingw32-gcc"
     kernel_compiler_name = "$HOME/opt/LanternOS-toolchain/bin/x86_64-elf-gcc"
     build_type = "Release"
@@ -20,7 +16,11 @@ def main():
         "--kernelcompiler", help="Specify the full path to where you installed the elf cross-compiler."
         " This is only needed if you installed the toolchain to a nondefault directory.")
     parser.add_argument("--build", help="Whether to build Debug or Release. Default is release.")
+    parser.add_argument("Mingw_Header_Dir",
+                        help="Provide the full path to your installation of the mingw headers.")
     args = parser.parse_args()
+
+    mingw_header_dir = args.Mingw_Header_Dir
 
     if args.ueficompiler:
         uefi_compiler_name = args.ueficompiler
@@ -32,20 +32,21 @@ def main():
     uefi_compiler_name = os.path.expandvars(uefi_compiler_name)
     kernel_compiler_name = os.path.expandvars(kernel_compiler_name)
 
-    subprocess.run(["make", "-C../bhavaloader"])
+    # build EFI bootloader
+    os.chdir("../bhavaloader")
+    subprocess.run(["cmake", "-S.", "-B../build/{}/bhavaloader".format(build_type),
+                   "-DCMAKE_CXX_COMPILER={}".format(uefi_compiler_name),
+                    "-DCMAKE_BUILD_TYPE={}".format(build_type),
+                    "-DMINGW_HEADERS_DIR={}".format(mingw_header_dir)])
+    subprocess.run(["make", "-C../build/{}/bhavaloader".format(build_type)])
+    os.chdir("../scripts")
 
     # TODO: Build kernel
 
     os.makedirs("../VMTestBed/Boot/EFI/Boot/", exist_ok=True)
-    os.replace("../bhavaloader/Bootx64.efi".format(build_type),
+    os.replace("../build/{}/bhavaloader/bin/BhavaLoader.exe".format(build_type),
                "../VMTestBed/Boot/EFI/Boot/Bootx64.efi")
-    removeBuildFiles = glob.glob("../bhavaloader/*.o") + \
-        glob.glob("../bhavaloader/*.a") + \
-        glob.glob("../bhavaloader/uefi/*.o") + \
-        glob.glob("../bhavaloader/uefi/*.a")
-
-    for file in removeBuildFiles:
-        os.remove(file)
+    #os.replace("../bhavaloader/Bootx64.efi.sym", "../VMTestBed/Boot/EFI/Boot/Bootx64.efi.sym")
 
 
 if __name__ == "__main__":
