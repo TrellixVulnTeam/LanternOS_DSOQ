@@ -13,6 +13,7 @@
       "stdexcept": "cpp",
       "string": "cpp",
       "system_error": "cpp",
-      "type_traits": "cpp"
+      "type_traits": "cpp",
+      "regex": "cpp"
    }
 }
