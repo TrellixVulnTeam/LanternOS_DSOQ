@@ -42,11 +42,25 @@ def main():
     os.chdir("../scripts")
 
     # TODO: Build kernel
+    os.chdir("../lanternOS/kernel/")
+    subprocess.run(["cmake", "-S.", "-B../../build/{}/kernel".format(build_type),
+                   "-DCMAKE_CXX_COMPILER={}".format(kernel_compiler_name),
+                    "-DCMAKE_BUILD_TYPE={}".format(build_type)])
+    subprocess.run(["make", "-C../../build/{}/kernel".format(build_type)])
+    os.chdir("../../scripts")
+
+    os.chdir("../build/{}/kernel/bin/".format(build_type))
+    subprocess.run(["objcopy", "--only-keep-debug", "LanternOS", "LanternOS.dbg"])
+    subprocess.run(["objcopy", "--strip-debug", "LanternOS"])
+    os.chdir("../../../../scripts")
+
+    if (build_type == "Debug"):
+        os.replace("../build/Release/kernel/bin/LanternOS.dbg", "../VMTestBed/Boot/LanternOS.dbg")
 
     os.makedirs("../VMTestBed/Boot/EFI/Boot/", exist_ok=True)
     os.replace("../build/{}/bhavaloader/bin/BhavaLoader.exe".format(build_type),
                "../VMTestBed/Boot/EFI/Boot/Bootx64.efi")
-    #os.replace("../bhavaloader/Bootx64.efi.sym", "../VMTestBed/Boot/EFI/Boot/Bootx64.efi.sym")
+    os.replace("../build/{}/kernel/bin/LanternOS".format(build_type), "../VMTestBed/Boot/LanternOS")
 
 
 if __name__ == "__main__":

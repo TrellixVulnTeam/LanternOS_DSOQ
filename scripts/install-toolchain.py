@@ -203,6 +203,7 @@ def main():
 
     # chdir back to root install dir to be safe
     os.chdir(install_location)
+    # Build UEFI app cross-compiler
     binutils_build_dir = configure_source("binutils", "x86_64-w64-mingw32", install_location, ["--with-sysroot",
                                                                                                "--disable-nls", "--disable-werror"])
     build_binutils("x86_64-w64-mingw32", binutils_build_dir, job_number)
@@ -212,7 +213,13 @@ def main():
                                      ["--disable-nls", "--enable-languages=c,c++", "--without-headers"])
     build_gcc("x86_64-w64-mingw32", gcc_build_dir, job_number)
 
-    # TODO: build cross-compiler for kernel.
+    # Build kernel cross-compiler
+    kernel_binutils_build_dir = configure_source("binutils", "x86_64-elf", install_location, ["--with-sysroot",
+                                                                                              "--disable-nls", "--disable-werror"])
+    build_binutils("x86_64-elf", kernel_binutils_build_dir, job_number)
+    kernel_gcc_build_dir = configure_source(
+        "gcc", "x86_64-elf", install_location, ["--disable-nls", "--enable-languages=c,c++", "--without-headers"])
+    build_gcc("x86_64-elf", kernel_gcc_build_dir, job_number)
 
 
 if __name__ == "__main__":
