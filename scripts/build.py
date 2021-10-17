@@ -2,6 +2,7 @@
 import argparse
 import subprocess
 import os
+import shutil
 
 
 def main():
@@ -61,6 +62,8 @@ def main():
     os.replace("../build/{}/bhavaloader/bin/BhavaLoader.exe".format(build_type),
                "../VMTestBed/Boot/EFI/Boot/Bootx64.efi")
     os.replace("../build/{}/kernel/bin/LanternOS".format(build_type), "../VMTestBed/Boot/LanternOS")
+
+    shutil.copyfile("../Vendor/font/font.psf", "../VMTestBed/Boot/font.psf")
 
 
 if __name__ == "__main__":

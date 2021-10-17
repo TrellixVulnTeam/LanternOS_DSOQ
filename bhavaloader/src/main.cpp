@@ -5,16 +5,27 @@
 #include "efi/protocol_handler.h"
 #include "efi/simple_file_system.h"
 #include "elf/elf_header.h"
+#include "font/psf.h"
 #include "util/print.h"
 
 struct Framebuffer {
    void *frameBufferAddress;
    uint32_t pixelsPerScanLine;
+   uint32_t horizontalResolution;
+   uint32_t verticalResolution;
 };
 
-typedef int(__attribute__((sysv_abi)) * KernelEntry)(Framebuffer);
+struct FontFormat {
+   void *FontBufferAddress;
+   uint32_t numGlyphs;
+   uint32_t glyphSizeInBytes;
+   uint32_t glyphHeight;
+   uint32_t glyphWidth;
+};
 
-UINTN GetKernelFileSize(EFI_FILE_PROTOCOL *kernelHandle) {
+typedef int(__attribute__((sysv_abi)) * KernelEntry)(Framebuffer, FontFormat);
+
+UINTN GetFileSize(EFI_FILE_PROTOCOL *fileHandle) {
    UINTN fileSize = 0;
    // Find filesize of kernel. We first allocate a pool of 1 byte so that GetInfo() can return
    // us the correct size in bytes the buffer needs to be.
@@ -23,12 +34,12 @@ UINTN GetKernelFileSize(EFI_FILE_PROTOCOL *kernelHandle) {
    void *buffer         = NULL;
    ST->BootServices->AllocatePool(type, bufferSize, &buffer);
    EFI_GUID fileInfoGUID = EFI_FILE_INFO_GUID;
-   kernelHandle->GetInfo(kernelHandle, &fileInfoGUID, &bufferSize, (void **)buffer);
+   fileHandle->GetInfo(fileHandle, &fileInfoGUID, &bufferSize, (void **)buffer);
 
    // Now that we know the correct number of bytes we have to allocate, we can get the data for real.
    ST->BootServices->FreePool(buffer);
    ST->BootServices->AllocatePool(type, bufferSize, &buffer);
-   EFI_STATUS st = kernelHandle->GetInfo(kernelHandle, &fileInfoGUID, &bufferSize, (void **)buffer);
+   EFI_STATUS st = fileHandle->GetInfo(fileHandle, &fileInfoGUID, &bufferSize, (void **)buffer);
    if (st != EFI_SUCCESS) {
       println(L"Error! Could not allocate memory for GetInfo()!");
       ST->BootServices->FreePool(buffer);
@@ -39,7 +50,8 @@ UINTN GetKernelFileSize(EFI_FILE_PROTOCOL *kernelHandle) {
    return fileSize;
 }
 
-uint8_t *LoadKernel(EFI_HANDLE deviceHandle, EFI_HANDLE ImageHandle, UINTN *bufferSize) {
+UINT8 *LoadRootDirFile(EFI_HANDLE deviceHandle, EFI_HANDLE ImageHandle, UINTN *bufferSize,
+                       const CHAR16 *fileName) {
    // Get SimpleFileSystem Protocol.
    EFI_GUID simpleFileSystemProtocolGUID         = EFI_SIMPLE_FILE_SYSTEM_PROTOCOL_GUID;
    EFI_SIMPLE_FILE_SYSTEM_PROTOCOL *SFSInterface = NULL;
@@ -55,29 +67,30 @@ uint8_t *LoadKernel(EFI_HANDLE deviceHandle, EFI_HANDLE ImageHandle, UINTN *buff
    EFI_FILE_PROTOCOL *rootHandle = NULL;
    SFSInterface->OpenVolume(SFSInterface, &rootHandle);
 
-   // Open file handle for kernel.
-   EFI_FILE_PROTOCOL *kernelHandle = NULL;
-   CHAR16 fileName[]               = L"LanternOS";
-   status = rootHandle->Open(rootHandle, &kernelHandle, fileName, EFI_FILE_MODE_READ, 0);
+   // Open file handle for desired file.
+   EFI_FILE_PROTOCOL *fileHandle = NULL;
+   status = rootHandle->Open(rootHandle, &fileHandle, (CHAR16 *)fileName, EFI_FILE_MODE_READ, 0);
    if (status != EFI_SUCCESS) {
       println(L"Error! Could not get a file handle to the kernel.");
       return NULL;
    }
    rootHandle->Close(rootHandle);
 
-   // Get the filesize of the kernel so we know how much memory to allocate for it.
-   UINTN kernelSize = GetKernelFileSize(kernelHandle);
-   println(L"The filesize of the kernel is: %d bytes.", kernelSize);
+   // Get the filesize of the file so we know how much memory to allocate for it.
+   UINTN fileSize = GetFileSize(fileHandle);
+   print(L"The filesize of ");
+   print(fileName);
+   println(L" is: %d bytes.", fileSize);
 
    // Seek to the beginning of the file just to be safe, then load the file into memory.
-   kernelHandle->SetPosition(kernelHandle, 0);
+   fileHandle->SetPosition(fileHandle, 0);
    void *buffer = NULL;
-   ST->BootServices->AllocatePool(EFI_MEMORY_TYPE::EfiLoaderData, kernelSize, &buffer);
-   kernelHandle->Read(kernelHandle, &kernelSize, (void **)buffer);
+   ST->BootServices->AllocatePool(EFI_MEMORY_TYPE::EfiLoaderData, fileSize, &buffer);
+   fileHandle->Read(fileHandle, &fileSize, (void **)buffer);
 
    ST->BootServices->CloseProtocol(deviceHandle, &simpleFileSystemProtocolGUID, ImageHandle, NULL);
-   *bufferSize = kernelSize;
-   return (uint8_t *)buffer;
+   *bufferSize = fileSize;
+   return (UINT8 *)buffer;
 }
 
 Elf64_Ehdr ParseELFHeader(uint8_t *data) {
@@ -97,9 +110,28 @@ Elf64_Phdr ParseELFPHeader(Elf64_Ehdr header, uint8_t *data) {
    return programHeader;
 }
 
+psf2_header ParsePSF2Header(UINT8 *data) {
+   psf2_header header;
+   for (int i = 0; i < sizeof(psf2_header); i++) { ((uint8_t *)&header)[i] = data[i]; }
+
+   return header;
+}
+
+bool VerifyPSF2File(psf2_header header) {
+   if (header.magic[0] != 0x72 || header.magic[1] != 0xb5 || header.magic[2] != 0x4a ||
+       header.magic[3] != 0x86) {
+      println(
+         L"Loaded font file does not appear to be in PSF VERSION 2 format! This loader only supports PSF "
+         L"VERSION 2");
+      return false;
+   }
+
+   return true;
+}
+
 bool VerifyELFFile(Elf64_Ehdr header) {
-   if (*(header.e_ident) != 127 || *(header.e_ident + 1) != 'E' || *(header.e_ident + 2) != 'L' ||
-       *(header.e_ident + 3) != 'F') {
+   if (header.e_ident[0] != 127 || header.e_ident[1] != 'E' || header.e_ident[2] != 'L' ||
+       header.e_ident[3] != 'F') {
       println(
          L"Loaded kernel file does not appear to be in the ELF format! This loader only supports ELF file "
          L"format.");
@@ -169,7 +201,8 @@ Framebuffer SetUpFramebuffer(UINT32 videoMode) {
 
    gopInterface->SetMode(gopInterface, videoMode);
 
-   return {(void *)gopInterface->Mode->FrameBufferBase, gopInterface->Mode->Info->PixelsPerScanLine};
+   return {(void *)gopInterface->Mode->FrameBufferBase, gopInterface->Mode->Info->PixelsPerScanLine,
+           gopInterface->Mode->Info->HorizontalResolution, gopInterface->Mode->Info->VerticalResolution};
 }
 
 extern "C" {
@@ -198,8 +231,9 @@ efi_main(IN EFI_HANDLE ImageHandle, IN EFI_SYSTEM_TABLE *SystemTable) {
    println(L"Copyright (©) 2021. Licensed under the MIT License.");
    println(L"This UEFI Image has been loaded at memory address: 0x%x", ImageBaseAddress);
 
-   UINTN bufferSize        = 0;
-   uint8_t *kernelLocation = LoadKernel(loadedImageInterface->DeviceHandle, ImageHandle, &bufferSize);
+   UINTN bufferSize = 0;
+   UINT8 *kernelLocation =
+      LoadRootDirFile(loadedImageInterface->DeviceHandle, ImageHandle, &bufferSize, L"LanternOS");
    if (kernelLocation == NULL) {
       println(L"Could not load ELF kernel into memory.");
       return 1;
@@ -219,11 +253,22 @@ efi_main(IN EFI_HANDLE ImageHandle, IN EFI_SYSTEM_TABLE *SystemTable) {
    KernelEntry kmain   = (KernelEntry)adjustedEntry;
 
    if (!VerifyELFFile(headerData)) {
-      // return 1;
+      return 1;
    } else {
       println(L"Kernel file successfully verified as 64-bit ELF executable.");
    }
    println(L"Entry point kmain for kernel is loaded in memory at address 0x%x", adjustedEntry);
+
+   UINTN fontBufferSize = 0;
+   UINT8 *fontLocation =
+      LoadRootDirFile(loadedImageInterface->DeviceHandle, ImageHandle, &fontBufferSize, L"font.psf");
+
+   psf2_header psf2Header = ParsePSF2Header(fontLocation);
+   if (!VerifyPSF2File(psf2Header)) {
+      return 1;
+   }
+   FontFormat fontFormat = {fontLocation + psf2Header.headerSize, psf2Header.length, psf2Header.charSize,
+                            psf2Header.height, psf2Header.width};
 
    UINT32 videoMode = GetVideoMode();
 
@@ -241,7 +286,7 @@ efi_main(IN EFI_HANDLE ImageHandle, IN EFI_SYSTEM_TABLE *SystemTable) {
    SystemTable->BootServices->CloseProtocol(ImageHandle, &loadedImageProtocolGUID, ImageHandle, NULL);
    ExitBootServices(ImageHandle);
    // Execute kernel
-   int ret = kmain(framebuffer);
+   int ret = kmain(framebuffer, fontFormat);
 
    return EFI_SUCCESS;
 }
