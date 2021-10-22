@@ -14,6 +14,9 @@
       "string": "cpp",
       "system_error": "cpp",
       "type_traits": "cpp",
-      "regex": "cpp"
+      "regex": "cpp",
+      "array": "cpp",
+      "string_view": "cpp",
+      "ranges": "cpp"
    }
 }

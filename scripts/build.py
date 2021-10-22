@@ -42,6 +42,14 @@ def main():
     subprocess.run(["make", "-C../build/{}/bhavaloader".format(build_type)])
     os.chdir("../scripts")
 
+    # TODO: Build libk
+    os.chdir("../namelesslibc/libk/")
+    subprocess.run(["cmake", "-S.", "-B../../build/{}/namelesslibc".format(build_type),
+                   "-DCMAKE_CXX_COMPILER={}".format(kernel_compiler_name),
+                    "-DCMAKE_BUILD_TYPE={}".format(build_type)])
+    subprocess.run(["make", "-C../../build/{}/namelesslibc".format(build_type)])
+    os.chdir("../../scripts")
+
     # TODO: Build kernel
     os.chdir("../lanternOS/kernel/")
     subprocess.run(["cmake", "-S.", "-B../../build/{}/kernel".format(build_type),

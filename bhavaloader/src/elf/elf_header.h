@@ -6,6 +6,7 @@ typedef uint16_t Elf64_Half;
 typedef uint32_t Elf64_Word;
 typedef uint64_t Elf64_Addr;
 typedef uint64_t Elf64_Off;
+typedef uint64_t Elf64_Xword;
 
 struct Elf64_Ehdr {
    unsigned char e_ident[EI_NIDENT];
@@ -34,3 +35,19 @@ struct Elf64_Phdr {
    Elf64_Addr p_memsz;
    Elf64_Addr p_align;
 };
+
+typedef struct {
+   Elf64_Word sh_name;
+   Elf64_Word sh_type;
+   Elf64_Xword sh_flags;
+   Elf64_Addr sh_addr;
+   Elf64_Off sh_offset;
+   Elf64_Xword sh_size;
+   Elf64_Word sh_link;
+   Elf64_Word sh_info;
+   Elf64_Xword sh_addralign;
+   Elf64_Xword sh_entsize;
+} Elf64_Shdr;
+
+#define SHT_INIT_ARRAY 14
+#define SHT_FINI_ARRAY 15

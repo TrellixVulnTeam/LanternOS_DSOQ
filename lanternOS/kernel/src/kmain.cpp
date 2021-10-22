@@ -1,18 +1,14 @@
+#include "libk/string.h"
+#include "stdarg.h"
+#include "stddef.h"
 #include "stdint.h"
+#include "tty/tty.h"
 
-struct Framebuffer {
-   uint32_t *frameBufferAddress;
-   uint32_t pixelsPerScanLine;
-   uint32_t horizontalResolution;
-   uint32_t verticalResolution;
-};
-
-struct FontFormat {
-   void *FontBufferAddress;
-   uint32_t numGlyphs;
-   uint32_t glyphSizeInBytes;
-   uint32_t glyphHeight;
-   uint32_t glyphWidth;
+struct GlobalInitializers {
+   uint64_t *ctorAddresses;
+   int ctorCount;
+   uint64_t *dtorAddresses;
+   int dtorCount;
 };
 
 /**
@@ -27,7 +23,7 @@ struct FontFormat {
  *                    0xFF000000 represents blue value, 0x00FF0000 represents green value, 0x0000FF00
  *                    represents red.
  */
-void plotpixel(Framebuffer fb, int x, int y, int pixelColor) {
+void PlotPixel(Framebuffer fb, int x, int y, int pixelColor) {
    // In order to write to a linear framebuffer of memory values as if it were a 2d array of pixels,
    // we need to multiply our desired y coordinate by the number of pixels per scanline. This will
    // "jump" us down y rows of pixels, positioning us at the 0th column of the yth row.
@@ -37,6 +33,12 @@ void plotpixel(Framebuffer fb, int x, int y, int pixelColor) {
    // Note that we do not need to worry about the size of each pixel in memory (4 bytes), because we are
    // indexing the framebuffer as an array of 4 byte unsigned integers.
    fb.frameBufferAddress[yMemOffset + x] = pixelColor;
+}
+
+void SetTTYBGColor(Framebuffer fb, int pixelColor) {
+   for (uint32_t x = 0; x < fb.horizontalResolution; x++) {
+      for (uint32_t y = 0; y < fb.verticalResolution; y++) { PlotPixel(fb, x, y, pixelColor); }
+   }
 }
 
 /**
@@ -52,7 +54,7 @@ void plotpixel(Framebuffer fb, int x, int y, int pixelColor) {
  *
  * @todo: What is the valid range for charPosX and charPosY? IE, can I implement automatic text wrapping?
  */
-void putchar(Framebuffer fb, FontFormat font, unsigned short int charToPrint, int charPosX, int charPosY,
+void PutChar(Framebuffer fb, FontFormat font, unsigned short int charToPrint, int charPosX, int charPosY,
              uint32_t foreground, uint32_t background) {
    // Gets a pointer to the offset in memory where the glyph we want to print is stored.
    uint8_t *fontPtr = (uint8_t *)font.FontBufferAddress + charToPrint * font.glyphSizeInBytes;
@@ -75,9 +77,9 @@ void putchar(Framebuffer fb, FontFormat font, unsigned short int charToPrint, in
       // to 1 or 0.
       for (unsigned long x = pixelXOffset; x < pixelXOffset + 8; x++) {
          if ((*fontPtr & (0b10000000 >> (x - pixelXOffset))) != 0) {
-            plotpixel(fb, x, y, foreground);
+            PlotPixel(fb, x, y, foreground);
          } else {
-            plotpixel(fb, x, y, background);
+            PlotPixel(fb, x, y, background);
          }
       }
       // We then increment the pointer to the next byte of data representing this row.
@@ -87,9 +89,9 @@ void putchar(Framebuffer fb, FontFormat font, unsigned short int charToPrint, in
       // "left off" from the previous loop.
       for (unsigned long x = pixelXOffset; x < pixelXOffset + 2; x++) {
          if ((*fontPtr & (0b10000000 >> (x - pixelXOffset))) != 0) {
-            plotpixel(fb, x + 8, y, foreground);
+            PlotPixel(fb, x + 8, y, foreground);
          } else {
-            plotpixel(fb, x + 8, y, background);
+            PlotPixel(fb, x + 8, y, background);
          }
       }
 
@@ -99,28 +101,53 @@ void putchar(Framebuffer fb, FontFormat font, unsigned short int charToPrint, in
    }
 }
 
-void printCharArray(const char *array, Framebuffer fb, FontFormat font) {
+void Puts(const char *array, Framebuffer fb, FontFormat font, int posX, int posY, uint32_t fg, uint32_t bg) {
    int i            = 0;
    char charToPrint = *array;
 
    while (charToPrint != 0) {
-      putchar(fb, font, charToPrint, i, 0, 0xFFFFFFFF, 0x00000000);
+      PutChar(fb, font, charToPrint, i + posX, posY, fg, bg);
       array       = array + 1;
       charToPrint = *array;
       i++;
    }
 }
 
+void kprintf(const char *format, ...) {
+   va_list args;
+   va_start(args, format);
+
+   for (size_t i = 0; i < strlen(format); i++) {
+      char c = format[i];
+
+      if (c == '%') {
+         switch (c) {
+         case '%': break;
+         }
+      }
+   }
+
+   va_end(args);
+}
+
+typedef void (*global_ctor)(void);
+void CallGlobalConstructors(GlobalInitializers initializers) {
+   for (int i = 0; i < initializers.ctorCount; i++) {
+      global_ctor constructor = (global_ctor)initializers.ctorAddresses[i];
+      constructor();
+   }
+}
+
 extern "C" {
-int kmain(Framebuffer framebuffer, FontFormat fontFormat) {
-   printCharArray("This is a test of the emergency broadcast system. !@#$%^&*()_+", framebuffer, fontFormat);
-   // putchar(framebuffer, fontFormat, 'T', 0, 0, 0xFFFFFFFF, 0x00000000);
-   // putchar(framebuffer, fontFormat, 'e', 1, 0, 0xFFFFFFFF, 0x00000000);
-   // putchar(framebuffer, fontFormat, 's', 2, 0, 0xFFFFFFFF, 0x00000000);
-   // putchar(framebuffer, fontFormat, 't', 3, 0, 0xFFFFFFFF, 0x00000000);
-   // putchar(framebuffer, fontFormat, '!', 4, 0, 0xFFFFFFFF, 0x00000000);
+int kmain(Framebuffer framebuffer, FontFormat fontFormat, GlobalInitializers initializers) {
+   CallGlobalConstructors(initializers);
+   SetTTYBGColor(framebuffer, 0x1a1a1a);
+   Puts("Welcome to LanternOS.", framebuffer, fontFormat, 0, 0, 0xFFCC00, 0x1a1a1a);
+   Puts("Copyright (c) 2021. Licensed under the MIT License.", framebuffer, fontFormat, 0, 1, 0xFFCC00,
+        0x1a1a1a);
 
    while (true)
       ;
+   return 0;
 }
 }
