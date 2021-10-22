@@ -7,7 +7,8 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/../../build/${CM
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 project(LanternOS CXX)
 
-set(SOURCES "src/kmain.cpp")
+set(SOURCES "src/kmain.cpp"
+            "src/tty/tty.cpp")
 
 add_executable(LanternOS  ${SOURCES})
 

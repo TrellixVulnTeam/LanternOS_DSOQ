@@ -2,6 +2,16 @@ cmake_minimum_required(VERSION 3.16.0)
 
 set(CMAKE_CXX_COMPILER_WORKS ON)
 set(MINGW_HEADERS_DIR "" CACHE STRING "Provide the full path to the mingw headers.")
+# This is mostly for testing in QEMU. The bootloader attempts to select the highest supported resolution,
+# which for QEMU is 2560x1600. This causes part of the screen to be cut off do the small size of the 
+# qemu window. If UEFI cant find the custom res you specified, it will print an error and exit.
+set(CUSTOM_RESOLUTION ON)
+
+if (CUSTOM_RESOLUTION)
+   add_compile_definitions(CUSTOM_RESOLUTION)
+   add_compile_definitions(CUSTOM_RESOLUTION_X=1280)
+   add_compile_definitions(CUSTOM_RESOLUTION_Y=720)
+endif()
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/../build/${CMAKE_BUILD_TYPE}/bhavaloader/bin")
 

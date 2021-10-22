@@ -369,7 +369,7 @@ MemoryMap ExitBootServices(EFI_HANDLE ImageHandle) {
 
 /** Finds the highest resolution video mode this device supports.
  *
- * @return The UEFI mode number for the selected video mode.
+ * @return The UEFI mode number for the selected video mode, or -1 if an adequate mode could not be found.
  */
 UINT32 GetVideoMode() {
    EFI_GUID gopGUID                           = EFI_GRAPHICS_OUTPUT_PROTOCOL_GUID;
@@ -377,9 +377,17 @@ UINT32 GetVideoMode() {
    ST->BootServices->LocateProtocol(&gopGUID, NULL, (void **)&gopInterface);
    EFI_GRAPHICS_OUTPUT_MODE_INFORMATION *info = NULL;
    UINTN size                                 = 0;
-
+   int favoredMode                            = -1;
+#ifdef CUSTOM_RESOLUTION
+   for (int i = 0; i < gopInterface->Mode->MaxMode; i++) {
+      gopInterface->QueryMode(gopInterface, i, &size, &info);
+      if (info->HorizontalResolution == CUSTOM_RESOLUTION_X &&
+          info->VerticalResolution == CUSTOM_RESOLUTION_Y) {
+         favoredMode = i;
+      }
+   }
+#else
    // Get video mode with highest resolution.
-   int favoredMode           = 0;
    int currentHighestHorzRes = 0;
    int currentHighestVertRes = 0;
    for (int i = 0; i < gopInterface->Mode->MaxMode; i++) {
@@ -390,6 +398,7 @@ UINT32 GetVideoMode() {
          }
       }
    }
+#endif
    gopInterface->QueryMode(gopInterface, favoredMode, &size, &info);
    println(L"Selected Kernel Video Mode Horz: %d px, Vert: %d px.", info->HorizontalResolution,
            info->VerticalResolution);
@@ -484,6 +493,10 @@ efi_main(IN EFI_HANDLE ImageHandle, IN EFI_SYSTEM_TABLE *SystemTable) {
                             psf2Header.height, psf2Header.width};
 
    UINT32 videoMode = GetVideoMode();
+   if (videoMode == -1) {
+      WaitForKey(L"Could not find suitable video mode.");
+      return 1;
+   }
 
    WaitForKey(L"Ready to transfer control to kernel. Press any key to continue...");
    Framebuffer framebuffer = SetUpFramebuffer(videoMode);
