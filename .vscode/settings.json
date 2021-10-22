@@ -17,6 +17,7 @@
       "regex": "cpp",
       "array": "cpp",
       "string_view": "cpp",
-      "ranges": "cpp"
+      "ranges": "cpp",
+      "uefispec.h": "c"
    }
 }

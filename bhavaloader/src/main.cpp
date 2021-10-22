@@ -1,9 +1,8 @@
-#include "efi/efi.h"
-#include "efi/efi_console.h"
-#include "efi/graphics.h"
-#include "efi/guid.h"
-#include "efi/protocol_handler.h"
-#include "efi/simple_file_system.h"
+#include "efi.h"
+#include "efiprot.h"
+
+EFI_SYSTEM_TABLE *ST;
+
 #include "elf/elf_header.h"
 #include "font/psf.h"
 #include "util/memcpy.h"
@@ -55,7 +54,7 @@ UINTN GetFileSize(EFI_FILE_PROTOCOL *fileHandle) {
    EFI_MEMORY_TYPE type = EFI_MEMORY_TYPE::EfiLoaderData;
    void *buffer         = NULL;
    ST->BootServices->AllocatePool(type, bufferSize, &buffer);
-   EFI_GUID fileInfoGUID = EFI_FILE_INFO_GUID;
+   EFI_GUID fileInfoGUID = EFI_FILE_INFO_ID;
    fileHandle->GetInfo(fileHandle, &fileInfoGUID, &bufferSize, (void **)buffer);
 
    // Now that we know the correct number of bytes we have to allocate, we can get the file information.
@@ -129,13 +128,12 @@ EFI_PHYSICAL_ADDRESS TranslateKernelAddress(EFI_PHYSICAL_ADDRESS kernelAddr,
  *         Returns NULL if the file could not be loaded.
  */
 UINT8 *LoadRootDirFile(EFI_HANDLE deviceHandle, EFI_HANDLE ImageHandle, UINTN *OUTbufferSize,
-                       const CHAR16 *fileName, UINTN maxAddrLocation) {
+                       const wchar_t *fileName, UINTN maxAddrLocation) {
    // Get SimpleFileSystem Protocol.
    EFI_GUID simpleFileSystemProtocolGUID         = EFI_SIMPLE_FILE_SYSTEM_PROTOCOL_GUID;
    EFI_SIMPLE_FILE_SYSTEM_PROTOCOL *SFSInterface = NULL;
-   EFI_STATUS status =
-      ST->BootServices->OpenProtocol(deviceHandle, &simpleFileSystemProtocolGUID, (void **)&SFSInterface,
-                                     ImageHandle, NULL, EFI_OPEN_PROTOCOL_BY_HANDLE_PROTOCOL);
+   EFI_STATUS status = ST->BootServices->OpenProtocol(deviceHandle, &simpleFileSystemProtocolGUID,
+                                                      (void **)&SFSInterface, ImageHandle, NULL, 0x00000001);
    if (status != EFI_SUCCESS) {
       println(L"Error! SimpleFileSystemProtocol not supported!");
       return NULL;
@@ -417,7 +415,7 @@ Framebuffer SetUpFramebuffer(UINTN videoMode) {
            gopInterface->Mode->Info->HorizontalResolution, gopInterface->Mode->Info->VerticalResolution};
 }
 
-void WaitForKey(const CHAR16 *msg) {
+void WaitForKey(const wchar_t *msg) {
    // Clear input queue.
    ST->ConIn->Reset(ST->ConIn, false);
    println(msg);
@@ -446,8 +444,7 @@ efi_main(IN EFI_HANDLE ImageHandle, IN EFI_SYSTEM_TABLE *SystemTable) {
    EFI_GUID loadedImageProtocolGUID                = EFI_LOADED_IMAGE_PROTOCOL_GUID;
    EFI_LOADED_IMAGE_PROTOCOL *loadedImageInterface = NULL;
    SystemTable->BootServices->OpenProtocol(ImageHandle, &loadedImageProtocolGUID,
-                                           (void **)&loadedImageInterface, ImageHandle, NULL,
-                                           EFI_OPEN_PROTOCOL_BY_HANDLE_PROTOCOL);
+                                           (void **)&loadedImageInterface, ImageHandle, NULL, 0x00000001);
    // Get the address this UEFI image was loaded at and print it for debugging purposes.
    UINT64 ImageBaseAddress = (UINT64)loadedImageInterface->ImageBase;
    println(L"Welcome to BhavaLoader v%d.%d.%d.", versionMajor, versionMinor, versionPatch);

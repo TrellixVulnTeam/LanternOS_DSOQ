@@ -1,5 +1,4 @@
 #pragma once
-#include "../efi/efi_console.h"
 #include "stdarg.h"
 
 #define MAX_CHARS          1024
@@ -86,7 +85,7 @@ void itoa(UINT64 value, int base, CHAR16* buffer, int* length) {
  * @TODO: Currently no enforcement for if the formatted string exceeds MAX_CHARS and corrupts other data.
  */
 void print_internal(const wchar_t* fmt, bool addEOL, va_list args) {
-   wchar_t buffer[MAX_CHARS];
+   CHAR16 buffer[MAX_CHARS];
    int fmtPosition = 0;
    int bufferPos   = 0;
 
@@ -153,10 +152,17 @@ void print_internal(const wchar_t* fmt, bool addEOL, va_list args) {
  * @param fmt: The format string.
  * @param ...: variadic number of args to be formatted.
  */
-void print(const CHAR16* fmt, ...) {
+void print(const wchar_t* fmt, ...) {
    va_list args;
    va_start(args, fmt);
    print_internal(fmt, false, args);
+   va_end(args);
+}
+
+void print(const CHAR16* fmt, ...) {
+   va_list args;
+   va_start(args, fmt);
+   print_internal((wchar_t*)fmt, false, args);
    va_end(args);
 }
 
@@ -164,9 +170,16 @@ void print(const CHAR16* fmt, ...) {
  * @param fmt: The format string.
  * @param ...: variadic number of args to be formatted.
  */
-void println(const CHAR16* fmt, ...) {
+void println(const wchar_t* fmt, ...) {
    va_list args;
    va_start(args, fmt);
    print_internal(fmt, true, args);
+   va_end(args);
+}
+
+void println(const CHAR16* fmt, ...) {
+   va_list args;
+   va_start(args, fmt);
+   print_internal((wchar_t*)fmt, true, args);
    va_end(args);
 }
