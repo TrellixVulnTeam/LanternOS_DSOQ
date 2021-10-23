@@ -9,6 +9,7 @@ def main():
     uefi_compiler_name = "$HOME/opt/LanternOS-toolchain/bin/x86_64-w64-mingw32-gcc"
     kernel_compiler_name = "$HOME/opt/LanternOS-toolchain/bin/x86_64-elf-gcc"
     build_type = "Release"
+    run_tests = "OFF"
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--ueficompiler", help="Specify the full path to where you installed the uefi cross-compiler."
@@ -17,6 +18,7 @@ def main():
         "--kernelcompiler", help="Specify the full path to where you installed the elf cross-compiler."
         " This is only needed if you installed the toolchain to a nondefault directory.")
     parser.add_argument("--build", help="Whether to build Debug or Release. Default is release.")
+    parser.add_argument("--tests", action='store_true', help="Whether you wish to build and run unit tests.")
     parser.add_argument("Mingw_Header_Dir",
                         help="Provide the full path to your installation of the mingw headers.")
     args = parser.parse_args()
@@ -29,6 +31,8 @@ def main():
         kernel_compiler_name = args.kernelcompiler
     if args.build:
         build_type = args.build
+    if args.tests:
+        run_tests = "ON"
 
     uefi_compiler_name = os.path.expandvars(uefi_compiler_name)
     kernel_compiler_name = os.path.expandvars(kernel_compiler_name)
@@ -44,10 +48,11 @@ def main():
 
     # TODO: Build libk
     os.chdir("../namelesslibc/libk/")
-    subprocess.run(["cmake", "-S.", "-B../../build/{}/namelesslibc".format(build_type),
+    subprocess.run(["cmake", "-S.", "-B../build/{}/namelesslibc".format(build_type),
                    "-DCMAKE_CXX_COMPILER={}".format(kernel_compiler_name),
-                    "-DCMAKE_BUILD_TYPE={}".format(build_type)])
-    subprocess.run(["make", "-C../../build/{}/namelesslibc".format(build_type)])
+                    "-DCMAKE_BUILD_TYPE={}".format(build_type),
+                    "-DBUILD_TESTS={}".format(run_tests)])
+    subprocess.run(["make", "-C../build/{}/namelesslibc".format(build_type)])
     os.chdir("../../scripts")
 
     # TODO: Build kernel
@@ -72,6 +77,15 @@ def main():
     os.replace("../build/{}/kernel/bin/LanternOS".format(build_type), "../VMTestBed/Boot/LanternOS")
 
     shutil.copyfile("../Vendor/font/font.psf", "../VMTestBed/Boot/font.psf")
+
+    if (run_tests == "ON"):
+        print("================================")
+        print("========= UNIT TESTS ===========")
+        print("================================")
+        print("Begin running tests for libk...")
+        os.chdir("../namelesslibc/build/{}/namelesslibc/bin/".format(build_type))
+        subprocess.run(['./namelesslibk_tests'])
+        os.chdir("../../../../../scripts")
 
 
 if __name__ == "__main__":

@@ -135,15 +135,65 @@ void TTY::kprintf(const char *format, ...) {
    va_list args;
    va_start(args, format);
 
+   bool useAlternateForm = false;
+   bool isZeroPadded     = false;
+   bool leftAdjusted     = false;
+
    for (size_t i = 0; i < strlen(format); i++) {
       char c = format[i];
 
       if (c == '%') {
-         switch (c) {
-         case '%': break;
+         i++;
+         bool parseFlags = true;
+         while (parseFlags) {
+            c = format[i];
+            switch (c) {
+            case '#':
+               useAlternateForm = true;
+               i++;
+               break;
+            case '0':
+               if (!leftAdjusted) {
+                  isZeroPadded = true;
+               }
+               i++;
+               break;
+            case '-':
+               if (isZeroPadded) {
+                  isZeroPadded = false;
+               }
+               leftAdjusted = true;
+               i++;
+               break;
+            case ' ':
+               // TODO: What does this do?
+               i++;
+               break;
+            case '+':
+               // TODO: What does this do?
+               i++;
+               break;
+            default: parseFlags = false; break;
+            }
          }
+
+         // Check if theres an optional field width and parse.
+         if (c >= 49 && c <= 57) {
+            int bufferPosCopy          = i;
+            bool parseFieldWidthLength = true;
+            while (parseFieldWidthLength) {
+               switch (c) {}
+            }
+         }
+
+         // Process conversion specifiers.
+         switch (c) {
+         case '%': PutChar('%', m_fgColor, m_bgColor);
+         }
+
+      } else {
+         PutChar(c, m_fgColor, m_bgColor);
       }
    }
-
    va_end(args);
 }

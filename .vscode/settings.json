@@ -18,6 +18,9 @@
       "array": "cpp",
       "string_view": "cpp",
       "ranges": "cpp",
-      "uefispec.h": "c"
+      "uefispec.h": "c",
+      "stdlib.h": "c",
+      "string.h": "c",
+      "stdbool.h": "c"
    }
 }
