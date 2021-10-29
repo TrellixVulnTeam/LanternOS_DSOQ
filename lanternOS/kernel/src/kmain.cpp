@@ -19,14 +19,18 @@ void CallGlobalConstructors(GlobalInitializers initializers) {
 
 extern "C" {
 int kmain(Framebuffer framebuffer, FontFormat fontFormat, GlobalInitializers initializers) {
+   int stackMarker = 0;
    CallGlobalConstructors(initializers);
 
    TTY term(framebuffer, fontFormat);
    term.SetBackgroundColor(0x1A1A1A);
    term.SetForegroundColor(0xFFCC00);
 
-   term.Puts("Welcome to LanternOS!");
-   term.Puts("Copyright (c) 2021. Licensed under the MIT License. ");
+   term.kprintf("Welcome to LanternOS!\n");
+   term.kprintf("Copyright (c) 2021. Licensed under the MIT License.\n");
+   term.kprintf("GOP Framebuffer is located at address: %#.16x.\n", framebuffer.frameBufferAddress);
+   term.kprintf("Approximate location of the stack pointer is: %#.16x.\n", &stackMarker);
+   term.kprintf("Test octal formatting: %#12.9o \n", 365788);
 
    while (true)
       ;

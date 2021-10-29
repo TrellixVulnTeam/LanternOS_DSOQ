@@ -2,6 +2,8 @@
 #define EI_NIDENT 16
 #include "stdint.h"
 
+#define PT_LOAD 1
+
 typedef uint16_t Elf64_Half;
 typedef uint32_t Elf64_Word;
 typedef uint64_t Elf64_Addr;

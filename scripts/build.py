@@ -58,8 +58,8 @@ def main():
     # TODO: Build kernel
     os.chdir("../lanternOS/kernel/")
     subprocess.run(["cmake", "-S.", "-B../../build/{}/kernel".format(build_type),
-                   "-DCMAKE_CXX_COMPILER={}".format(kernel_compiler_name),
-                    "-DCMAKE_BUILD_TYPE={}".format(build_type)])
+                    "-DCMAKE_CXX_COMPILER={}".format(kernel_compiler_name),
+                   "-DCMAKE_BUILD_TYPE={}".format(build_type)])
     subprocess.run(["make", "-C../../build/{}/kernel".format(build_type)])
     os.chdir("../../scripts")
 
@@ -78,6 +78,8 @@ def main():
 
     shutil.copyfile("../Vendor/font/font.psf", "../VMTestBed/Boot/font.psf")
 
+    os.environ["LD_PRELOAD"] = "{}/../namelesslibc/build/Release/namelesslibc/bin/libnamelesslibkfortesting.so".format(
+        os.getcwd())
     if (run_tests == "ON"):
         print("================================")
         print("========= UNIT TESTS ===========")

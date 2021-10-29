@@ -2,6 +2,8 @@
 
 #include <stdarg.h>
 
+#include "libk/ctype.h"
+#include "libk/stdlib.h"
 #include "libk/string.h"
 
 TTY::TTY(Framebuffer fb, FontFormat font) {
@@ -65,6 +67,12 @@ void TTY::ClearScreen() {
 }
 
 void TTY::PutChar(uint8_t charToPrint, uint32_t foreground, uint32_t background) {
+   // Handle control characters.
+   if (charToPrint == '\n') {
+      NewLine();
+      return;
+   }
+
    // Gets a pointer to the offset in memory where the glyph we want to print is stored.
    uint8_t *fontPtr = (uint8_t *)m_loadedFont.FontBufferAddress + charToPrint * m_loadedFont.glyphSizeInBytes;
 
@@ -113,6 +121,10 @@ void TTY::PutChar(uint8_t charToPrint, uint32_t foreground, uint32_t background)
    m_currentCharPosX++;
 }
 
+void TTY::PutChar(uint8_t charToPrint) {
+   PutChar(charToPrint, m_fgColor, m_bgColor);
+}
+
 void TTY::Puts(const char *array) {
    Puts(array, m_fgColor, m_bgColor);
 }
@@ -127,7 +139,61 @@ void TTY::Puts(const char *array, uint32_t fg, uint32_t bg) {
       charToPrint = *array;
       i++;
    }
-   NewLine();
+}
+
+void TTY::PrintFormattedWithModifiers(const char *str, long paddingAmount, long precisionAmount,
+                                      bool leftAdjusted, const char *alternateFormStr) {
+   int numSpaces                 = 0;
+   int numZeroes                 = 0;
+   bool printLeadingZeroForOctal = false;
+   bool printLeadingHexSign      = false;
+
+   if (precisionAmount >= strlen(str)) {
+      numZeroes = precisionAmount - strlen(str);
+   }
+
+   if (paddingAmount > strlen(str) + numZeroes) {
+      numSpaces = paddingAmount - (strlen(str) + numZeroes);
+   }
+
+   if (str[0] == '-') {
+      numZeroes--;
+      numSpaces--;
+   }
+
+   if (alternateFormStr != nullptr) {
+      // TODO replace with strcmp
+      if (alternateFormStr[0] == '0' && strlen(alternateFormStr) == 1) {
+         if (str[0] != '0' && numZeroes == 0) {
+            printLeadingZeroForOctal = true;
+         }
+      }
+      if (alternateFormStr[0] == '0' && alternateFormStr[1] == 'x') {
+         printLeadingHexSign = true;
+      }
+   }
+
+   if (!leftAdjusted) {
+      for (int i = 0; i < numSpaces; i++) { PutChar(' '); }
+      if (printLeadingHexSign) {
+         Puts("0x");
+      }
+      for (int i = 0; i < numZeroes; i++) { PutChar('0'); }
+      if (printLeadingZeroForOctal) {
+         PutChar('0');
+      }
+      Puts(str);
+   } else {
+      if (printLeadingHexSign) {
+         Puts("0x");
+      }
+      for (int i = 0; i < numZeroes; i++) { PutChar('0'); }
+      if (printLeadingZeroForOctal) {
+         PutChar('0');
+      }
+      Puts(str);
+      for (int i = 0; i < numSpaces; i++) { PutChar(' '); }
+   }
 }
 
 // TODO: Implement
@@ -135,64 +201,102 @@ void TTY::kprintf(const char *format, ...) {
    va_list args;
    va_start(args, format);
 
-   bool useAlternateForm = false;
-   bool isZeroPadded     = false;
-   bool leftAdjusted     = false;
+   long totalPadding   = 0;
+   long totalPrecision = 0;
+   bool leftAdjusted   = false;
 
-   for (size_t i = 0; i < strlen(format); i++) {
-      char c = format[i];
+   size_t bufPos = 0;
+   while (format[bufPos] != '\0') {
+      if (format[bufPos] == '%') {
+         bufPos++;
 
-      if (c == '%') {
-         i++;
-         bool parseFlags = true;
-         while (parseFlags) {
-            c = format[i];
-            switch (c) {
-            case '#':
-               useAlternateForm = true;
-               i++;
-               break;
-            case '0':
-               if (!leftAdjusted) {
-                  isZeroPadded = true;
-               }
-               i++;
-               break;
-            case '-':
-               if (isZeroPadded) {
-                  isZeroPadded = false;
-               }
+         // Handle potential flags.
+
+         while (format[bufPos] == '-' || format[bufPos] == '#' || format[bufPos] == '0' ||
+                format[bufPos] == ' ' || format[bufPos] == '+') {
+            if (format[bufPos] == '-') {
                leftAdjusted = true;
-               i++;
-               break;
-            case ' ':
-               // TODO: What does this do?
-               i++;
-               break;
-            case '+':
-               // TODO: What does this do?
-               i++;
-               break;
-            default: parseFlags = false; break;
             }
+
+            bufPos++;
          }
 
-         // Check if theres an optional field width and parse.
-         if (c >= 49 && c <= 57) {
-            int bufferPosCopy          = i;
-            bool parseFieldWidthLength = true;
-            while (parseFieldWidthLength) {
-               switch (c) {}
-            }
+         // Determine requested padding, if any.
+         if (isdigit(format[bufPos]) && format[bufPos] != '0') {
+            char *end    = NULL;
+            totalPadding = strtol(&(format[bufPos]), &end, 10);
+            bufPos       = bufPos + (end - &(format[bufPos]));
          }
 
-         // Process conversion specifiers.
-         switch (c) {
+         // Determine requested precision, if any.
+         if (format[bufPos] == '.') {
+            bufPos++;
+            char *end      = NULL;
+            totalPrecision = strtol(&(format[bufPos]), &end, 10);
+            bufPos         = bufPos + (end - &(format[bufPos]));
+         }
+
+         switch (format[bufPos]) {
+         case 'c': {
+            unsigned char val = va_arg(args, int);
+            PutChar(val, m_fgColor, m_bgColor);
+            break;
+         }
+         case 'i':
+         case 'd': {
+            int val = va_arg(args, int);
+            char stringRepresentation[MAXNUMERALREPRESENTATION];
+            itoa(val, stringRepresentation, 10);
+            PrintFormattedWithModifiers(stringRepresentation, totalPadding, totalPrecision, leftAdjusted,
+                                        nullptr);
+            break;
+         }
+         case 'o': {
+            unsigned int val = va_arg(args, unsigned int);
+            char stringRepresentation[MAXNUMERALREPRESENTATION];
+            itoa(val, stringRepresentation, 8);
+            PrintFormattedWithModifiers(stringRepresentation, totalPadding, totalPrecision, leftAdjusted,
+                                        "0");
+            break;
+         }
+         case 'u': {
+            unsigned int val = va_arg(args, unsigned int);
+            char stringRepresentation[MAXNUMERALREPRESENTATION];
+            itoa(val, stringRepresentation, 10);
+            PrintFormattedWithModifiers(stringRepresentation, totalPadding, totalPrecision, leftAdjusted,
+                                        nullptr);
+            break;
+         }
+         case 'p': {
+            char stringRepresentation[MAXNUMERALREPRESENTATION];
+            uint64_t val = (uint64_t)va_arg(args, void *);
+            itoa(val, stringRepresentation, 16);
+            PrintFormattedWithModifiers(stringRepresentation, totalPadding, totalPrecision, leftAdjusted,
+                                        nullptr);
+            break;
+         }
+         case 'x':
+         case 'X': {
+            char stringRepresentation[MAXNUMERALREPRESENTATION];
+            unsigned int val = va_arg(args, unsigned int);
+            itoa(val, stringRepresentation, 16);
+            PrintFormattedWithModifiers(stringRepresentation, totalPadding, totalPrecision, leftAdjusted,
+                                        "0x");
+            break;
+         }
+         case 's': {
+            const char *str = va_arg(args, const char *);
+            Puts(str);
+            break;
+         }
          case '%': PutChar('%', m_fgColor, m_bgColor);
          }
 
+         // After we are done parsing the conversion char, increment.
+         bufPos++;
       } else {
-         PutChar(c, m_fgColor, m_bgColor);
+         PutChar(format[bufPos]);
+         bufPos++;
       }
    }
    va_end(args);

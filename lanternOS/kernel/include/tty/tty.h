@@ -51,16 +51,50 @@ class TTY {
    void Puts(const char *array, uint32_t fg, uint32_t bg);
 
    /**
-    * @brief Renders a string of text to the screen starting at the beginning of the most recent line.
-    * Puts will implicitly terminate every string with a newline. Will automatically use the currently
-    * selected foreground and background colors.
+    * @brief Renders a string of text to the screen starting at the beginning of the most recent line. Will
+    * automatically use the currently selected foreground and background colors.
     *
     * @param array: A pointer to a null-terminated string to be printed.
     */
    void Puts(const char *array);
 
+   /**
+    * @brief Places a single ASCII character at the current cursor position.
+    *
+    * @param charToPrint: The ASCII character to print to the screen.
+    * @param foreground: The RGB foreground color for the character. Valid from 0x00000000 - 0xFFFFFFFF.
+    * @param background: The RGB background color for the character. Valid from 0x00000000 - 0xFFFFFFFF.
+    *
+    * @todo: Need to implement scrolling.
+    */
+   void PutChar(uint8_t charToPrint, uint32_t foreground, uint32_t background);
+
+   /**
+    * @brief Places a single ASCII character at the current cursor position. Will automatically use the
+    * currently selected foreground and background colors.
+    *
+    * @param charToPrint: The ASCII character to print to the screen.
+    *
+    * @todo: Need to implement scrolling.
+    */
+   void PutChar(uint8_t charToPrint);
+
    /** @brief Creates a newline and carriage return by setting the current cursor position. */
    void NewLine();
+
+   /** @brief Prints a formatted string to the screen.
+    *
+    * Currently, formatting roughly follows the Libc standard but is missing many features. Can do
+    * basic formatted printing of integers, unsigned ints, hexadecimal values, characters, strings, and
+    * pointers.
+    *
+    * @param format: A pointer to the first character of a null-terminated string, with or without
+    *                conversion specifiers, that you wish to print.
+    * @param ...: Variadic args for the variables you wish to format for printing.
+    *
+    * @todo: Finish implementing according to the C11 standard. Consider using variadic templates instead of
+    *        va_args.
+    */
    void kprintf(const char *format, ...);
 
    private:
@@ -69,9 +103,9 @@ class TTY {
    /** An abstraction of the currently loaded PC Screen Font data to be used to draw characters. */
    FontFormat m_loadedFont {};
    /** The column where the next character will be placed. */
-   uint32_t m_currentCharPosX {0};
+   uint64_t m_currentCharPosX {0};
    /** The row where the next character will be placed. */
-   uint32_t m_currentCharPosY {0};
+   uint64_t m_currentCharPosY {0};
 
    /** The number of rows that can fit on the screen, based on current resolution. */
    uint32_t m_numCharRows {0};
@@ -81,6 +115,12 @@ class TTY {
    uint32_t m_bgColor {0};
    /** The current foreground color of the TTY. */
    uint32_t m_fgColor {0};
+
+   /** Any Non-floating-point value should only need this many characters maximum to be represented. */
+   const uint8_t MAXNUMERALREPRESENTATION = 22;
+
+   void PrintFormattedWithModifiers(const char *str, long paddingAmount, long precisionAmount,
+                                    bool leftAdjusted, const char *alternateFormStr);
 
    /**
     * @brief Gets the RGB value of a specific pixel on the screen.
@@ -104,15 +144,4 @@ class TTY {
     *                    represents red.
     */
    void PlotPixel(uint32_t x, uint32_t y, uint32_t pixelColor);
-
-   /**
-    * @brief Places a single ASCII character at the current cursor position.
-    *
-    * @param charToPrint: The ASCII character to print to the screen.
-    * @param foreground: The RGB foreground color for the character. Valid from 0x00000000 - 0xFFFFFFFF.
-    * @param background: The RGB background color for the character. Valid from 0x00000000 - 0xFFFFFFFF.
-    *
-    * @todo: Need to implement scrolling.
-    */
-   void PutChar(uint8_t charToPrint, uint32_t foreground, uint32_t background);
 };
