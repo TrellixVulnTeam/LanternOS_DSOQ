@@ -28,9 +28,8 @@ int kmain(Framebuffer framebuffer, FontFormat fontFormat, GlobalInitializers ini
 
    term.kprintf("Welcome to LanternOS!\n");
    term.kprintf("Copyright (c) 2021. Licensed under the MIT License.\n");
-   term.kprintf("GOP Framebuffer is located at address: %#.16x.\n", framebuffer.frameBufferAddress);
-   term.kprintf("Approximate location of the stack pointer is: %#.16x.\n", &stackMarker);
-   term.kprintf("Test octal formatting: %#12.9o \n", 365788);
+   term.kprintf("GOP Framebuffer is located at address: %#.8x.\n", framebuffer.frameBufferAddress);
+   term.kprintf("Approximate location of the stack pointer is: %#.8x.\n", &stackMarker);
 
    while (true)
       ;

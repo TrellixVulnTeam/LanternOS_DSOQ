@@ -142,7 +142,7 @@ void TTY::Puts(const char *array, uint32_t fg, uint32_t bg) {
 }
 
 void TTY::PrintFormattedWithModifiers(const char *str, long paddingAmount, long precisionAmount,
-                                      bool leftAdjusted, const char *alternateFormStr) {
+                                      bool leftAdjusted, char *alternateFormStr) {
    int numSpaces                 = 0;
    int numZeroes                 = 0;
    bool printLeadingZeroForOctal = false;
@@ -162,13 +162,13 @@ void TTY::PrintFormattedWithModifiers(const char *str, long paddingAmount, long 
    }
 
    if (alternateFormStr != nullptr) {
-      // TODO replace with strcmp
-      if (alternateFormStr[0] == '0' && strlen(alternateFormStr) == 1) {
-         if (str[0] != '0' && numZeroes == 0) {
-            printLeadingZeroForOctal = true;
-         }
+      for (size_t i = 0; i < strlen(alternateFormStr); i++) {
+         alternateFormStr[i] = tolower(alternateFormStr[i]);
       }
-      if (alternateFormStr[0] == '0' && alternateFormStr[1] == 'x') {
+      if (strcmp(alternateFormStr, "0") == 0) {
+         printLeadingZeroForOctal = true;
+      }
+      if (strcmp(alternateFormStr, "0x") == 0) {
          printLeadingHexSign = true;
       }
    }
@@ -201,9 +201,10 @@ void TTY::kprintf(const char *format, ...) {
    va_list args;
    va_start(args, format);
 
-   long totalPadding   = 0;
-   long totalPrecision = 0;
-   bool leftAdjusted   = false;
+   long totalPadding     = 0;
+   long totalPrecision   = 0;
+   bool leftAdjusted     = false;
+   bool useAlternateForm = false;
 
    size_t bufPos = 0;
    while (format[bufPos] != '\0') {
@@ -216,6 +217,8 @@ void TTY::kprintf(const char *format, ...) {
                 format[bufPos] == ' ' || format[bufPos] == '+') {
             if (format[bufPos] == '-') {
                leftAdjusted = true;
+            } else if (format[bufPos] == '#') {
+               useAlternateForm = true;
             }
 
             bufPos++;
@@ -255,8 +258,14 @@ void TTY::kprintf(const char *format, ...) {
             unsigned int val = va_arg(args, unsigned int);
             char stringRepresentation[MAXNUMERALREPRESENTATION];
             itoa(val, stringRepresentation, 8);
-            PrintFormattedWithModifiers(stringRepresentation, totalPadding, totalPrecision, leftAdjusted,
-                                        "0");
+            if (useAlternateForm) {
+               char alternateFormStr[] = "0";
+               PrintFormattedWithModifiers(stringRepresentation, totalPadding, totalPrecision, leftAdjusted,
+                                           alternateFormStr);
+            } else {
+               PrintFormattedWithModifiers(stringRepresentation, totalPadding, totalPrecision, leftAdjusted,
+                                           nullptr);
+            }
             break;
          }
          case 'u': {
@@ -280,8 +289,14 @@ void TTY::kprintf(const char *format, ...) {
             char stringRepresentation[MAXNUMERALREPRESENTATION];
             unsigned int val = va_arg(args, unsigned int);
             itoa(val, stringRepresentation, 16);
-            PrintFormattedWithModifiers(stringRepresentation, totalPadding, totalPrecision, leftAdjusted,
-                                        "0x");
+            if (useAlternateForm) {
+               char alternateFormStr[] = "0x";
+               PrintFormattedWithModifiers(stringRepresentation, totalPadding, totalPrecision, leftAdjusted,
+                                           alternateFormStr);
+            } else {
+               PrintFormattedWithModifiers(stringRepresentation, totalPadding, totalPrecision, leftAdjusted,
+                                           nullptr);
+            }
             break;
          }
          case 's': {

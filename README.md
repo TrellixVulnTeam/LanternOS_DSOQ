@@ -1,6 +1,7 @@
 # LanternOS
 
-
+![](doc/bhavaloader.png)
+![](doc/lanternos.png)
 
 
 # Building

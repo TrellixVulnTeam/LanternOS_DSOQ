@@ -120,7 +120,7 @@ class TTY {
    const uint8_t MAXNUMERALREPRESENTATION = 22;
 
    void PrintFormattedWithModifiers(const char *str, long paddingAmount, long precisionAmount,
-                                    bool leftAdjusted, const char *alternateFormStr);
+                                    bool leftAdjusted, char *alternateFormStr);
 
    /**
     * @brief Gets the RGB value of a specific pixel on the screen.
