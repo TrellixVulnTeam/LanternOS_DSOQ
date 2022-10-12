@@ -35,7 +35,26 @@ def fetch_source(tool_name, source_url, download_dir):
             for member in remove_root:
                 member.path = "src/" + member.path[member.path.index("/")+1:]
 
-            gcc_source_tar.extractall(members=remove_root)
+            def is_within_directory(directory, target):
+                
+                abs_directory = os.path.abspath(directory)
+                abs_target = os.path.abspath(target)
+            
+                prefix = os.path.commonprefix([abs_directory, abs_target])
+                
+                return prefix == abs_directory
+            
+            def safe_extract(tar, path=".", members=None, *, numeric_owner=False):
+            
+                for member in tar.getmembers():
+                    member_path = os.path.join(path, member.name)
+                    if not is_within_directory(path, member_path):
+                        raise Exception("Attempted Path Traversal in Tar File")
+            
+                tar.extractall(path, members, numeric_owner=numeric_owner) 
+                
+            
+            safe_extract(gcc_source_tar, members=remove_root)
     except:
         print("Failed!")
         print("Could not extract file {}".format(tool_name))
